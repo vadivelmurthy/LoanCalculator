@@ -1,4 +1,6 @@
-﻿using System.Text;
+﻿using System;
+using System.Text;
+using System.Text.RegularExpressions;
 using System.Windows.Forms;
 using ClosedXML.Excel;
 using Newtonsoft.Json;
@@ -7,7 +9,9 @@ namespace ProbationDaysApp
 {
     public partial class Form1 : Form
     {
-        private int days = 180;
+        private readonly DateTime probationStart = new DateTime(2025, 4, 28); // 28th April 2025
+        private readonly int probationMonths = 6;
+        DateTime probationEnd => probationStart.AddMonths(probationMonths);
         private readonly string savePath = "days.txt";
         decimal personnelLoan = 20675m;
         decimal creditLoan = 2015m;
@@ -15,8 +19,10 @@ namespace ProbationDaysApp
         decimal loanamount = 180000m;
         decimal originalLoanAmount = 185000m;
         decimal monthlyEmi = 699.14m;
+        decimal aibBalance = 300m;
+        decimal revolutBalance = 100m;
         DateTime startDate = new DateTime(2023, 8, 12);
-        decimal[] variableRates = { 3m, 3.5m, 4m, 4.5m, 5m };
+        decimal[] variableRates = { 2.65m, 3m, 3.5m, 4m, 4.5m, 5m };
         int totalMonths = 35 * 12;
         private readonly string accountsPath = "accounts.json";
         private readonly string summaryPath = "summary.json";
@@ -25,7 +31,6 @@ namespace ProbationDaysApp
         public Form1()
         {
             InitializeComponent();
-            LoadDayValue();
             UpdateTextBox();
             LoadAmounts();      
             UpdateDisplays();   
@@ -33,7 +38,8 @@ namespace ProbationDaysApp
         }
         private void Form1_Load_1(object sender, EventArgs e)
         {
-            textBoxDays.Text = days.ToString();
+            int daysLeft = GetDaysLeft();
+            textBoxDays.Text = daysLeft.ToString();
             richTextBoxSummary.Visible = false;
             richTexthomeLoan.Text = loanamount.ToString();
         }
@@ -56,15 +62,10 @@ namespace ProbationDaysApp
                 richTextBoxSummary.Visible = false;
             }
         }
-
-        private void buttonSubtract_Click_1(object sender, EventArgs e)
+        private int GetDaysLeft()
         {
-            if (days > 0)
-            {
-                days--;
-                UpdateTextBox();
-                SaveDayValue();
-            }
+            int daysLeft = (probationEnd - DateTime.Today).Days;
+            return daysLeft > 0 ? daysLeft : 0;
         }
         private void UpdateDisplays()
         {
@@ -72,41 +73,38 @@ namespace ProbationDaysApp
             richTextBoxCreditLoan.Text = creditLoan.ToString();
             richTextBoxSavings.Text = savings.ToString();
             richTexthomeLoan.Text = loanamount.ToString();
-        }
-        private void LoadDayValue()
-        {
-            if (File.Exists(savePath))
-            {
-                string content = File.ReadAllText(savePath);
-                if (!int.TryParse(content, out days) || days < 0)
-                    days = 180;
-            }
+            richTextAib.Text = aibBalance.ToString();
+            richTextRevolut.Text = revolutBalance.ToString();
+            decimal totalSalaryBalance = aibBalance + revolutBalance;
+            richTextTotalBalance.Text = totalSalaryBalance.ToString("N2");
+
         }
         private void UpdateTextBox()
         {
-            textBoxDays.Text = days.ToString();
+            int daysLeft = GetDaysLeft();
+            textBoxDays.Text = daysLeft.ToString();
         }
         private void SaveDayValue()
         {
-            File.WriteAllText(savePath, days.ToString());
+            int daysLeft = GetDaysLeft();
+            File.WriteAllText(savePath, daysLeft.ToString());
         }
         private void btnSubtract_Click(object sender, EventArgs e)
         {
             HandleOperation(false);
         }
-
         private void btnAdd_Click(object sender, EventArgs e)
         {
             HandleOperation(true);
         }
-
         private void btnReset_Click(object sender, EventArgs e)
         {
             personnelLoan = 20675m;
             creditLoan = 2015m;
             savings = 450000m;
-            days = 180;
             loanamount = 180000m;
+            revolutBalance = 300m;
+            aibBalance = 300m;
 
             UpdateDisplays();
             UpdateTextBox();
@@ -122,11 +120,12 @@ namespace ProbationDaysApp
                 LoanAmount = loanamount,
                 PersonnelLoan = personnelLoan,
                 CreditLoan = creditLoan,
-                Savings = savings
+                Savings = savings,
+                AibBalance = aibBalance,
+                RevolutBalamce = revolutBalance
             };
             File.WriteAllText(accountsPath, JsonConvert.SerializeObject(data, Formatting.Indented));
         }
-
         private void LoadAmounts()
         {
             if (File.Exists(accountsPath))
@@ -141,6 +140,8 @@ namespace ProbationDaysApp
                         personnelLoan = data.PersonnelLoan;
                         creditLoan = data.CreditLoan;
                         savings = data.Savings;
+                        aibBalance= data.AibBalance;
+                        revolutBalance = data.RevolutBalamce;
                     }
                 }
                 catch (Exception ex)
@@ -153,7 +154,6 @@ namespace ProbationDaysApp
         {
             File.WriteAllText(summaryPath, JsonConvert.SerializeObject(summaryLog, Formatting.Indented));
         }
-
         private void LoadSummary()
         {
             if (File.Exists(summaryPath))
@@ -168,10 +168,9 @@ namespace ProbationDaysApp
                 catch { }
             }
         }
-
         private void HandleOperation(bool isAdd)
         {
-            string[] options = { "Personnel Loan", "Credit Loan", "Savings", "Home Loan" };
+            string[] options = { "Personnel Loan", "Credit Loan", "Savings", "Home Loan", "AIB Balance", "Revolut Balance" };
 
             using (var selectForm = new ComboInputDialog(options, isAdd ?
                    "Select Account to Add" :
@@ -206,11 +205,10 @@ namespace ProbationDaysApp
 
                     // Section for summary grouping
                     string section =
-                        selectedOption == "Home Loan"
-                        ? "Home"
-                        : selectedOption == "Savings"
-                            ? "" // or use another section name for savings if desired
-                            : "Loan";
+                          selectedOption == "Home Loan" ? "Home"
+                          : selectedOption == "Savings" ? "" // Or give it a section name if you want
+                          : (selectedOption == "AIB Balance" || selectedOption == "Revolut Balance") ? "Salary"
+                          : "Loan";
 
                     if (selectedOption == "Personnel Loan")
                     {
@@ -241,7 +239,7 @@ namespace ProbationDaysApp
                         {
                             MessageBox.Show("You exceeded the available Savings amount."); return;
                         }
-                        currency = "Rupees"; before = savings; savings += isAdd ? amt : -amt; after = savings; actionWord = (isAdd ? "added	to" : "subtracted from"); success = true;
+                        currency = "Rupees"; before = savings; savings += isAdd ? amt : -amt; after = savings; actionWord = (isAdd ? "added to" : "subtracted from"); success = true;
                     }
                     else if (selectedOption == "Home Loan")
                     {
@@ -249,7 +247,15 @@ namespace ProbationDaysApp
                         {
                             MessageBox.Show("You exceeded	the available Home	Loan amount."); return;
                         }
-                        currency = "Euro"; before = loanamount; loanamount += isAdd ? amt : -amt; after = loanamount; actionWord = (isAdd ? "added	to" : "payment made on"); success = true;
+                        currency = "Euro"; before = loanamount; loanamount += isAdd ? amt : -amt; after = loanamount; actionWord = (isAdd ? "added to" : "payment made on"); success = true;
+                    }
+                    else if (selectedOption == "AIB Balance")
+                    {
+                        currency = "Euro"; before = aibBalance; aibBalance += isAdd ? amt : -amt; after = aibBalance; actionWord = (isAdd ? "added to" : "payment made on"); success = true;
+                    }
+                    else if (selectedOption == "Revolut Balance")
+                    {
+                        currency = "Euro"; before = revolutBalance; revolutBalance += isAdd ? amt : -amt; after = revolutBalance; actionWord = (isAdd ? "added to" : "payment made on"); success = true;
                     }
 
                     if (success)
@@ -278,70 +284,239 @@ namespace ProbationDaysApp
         }
         private void ShowColoredGroupedSummary()
         {
+            richTextBoxSummary.Font = new Font("Consolas", 10);
             richTextBoxSummary.Clear();
+
             var groupedByDate = summaryLog.GroupBy(e => e.Date.Date).OrderBy(g => g.Key);
 
             foreach (var dayGroup in groupedByDate)
             {
+                // === Date Header: Big, bold, blue ===
                 string dateStr = $"On {dayGroup.Key:MMMM} {GetDayWithSuffix(dayGroup.Key.Day)} {dayGroup.Key.Year}:";
-                int headerStart = richTextBoxSummary.TextLength;
-                richTextBoxSummary.AppendText(dateStr + Environment.NewLine);
-                richTextBoxSummary.Select(headerStart, dateStr.Length);
-                richTextBoxSummary.SelectionFont = new Font(richTextBoxSummary.Font, FontStyle.Bold);
-                richTextBoxSummary.SelectionColor = Color.DarkBlue;
+                int dateHeaderStart = richTextBoxSummary.TextLength;
+                richTextBoxSummary.AppendText(dateStr + Environment.NewLine + Environment.NewLine);
 
-                // Group by Section ("Loan" or "Home")
+                var dateFont = new Font("Consolas", 18, FontStyle.Bold);
+                richTextBoxSummary.Select(dateHeaderStart, dateStr.Length);
+                richTextBoxSummary.SelectionFont = dateFont;
+                richTextBoxSummary.SelectionColor = Color.RoyalBlue;
+
+                // Reset selection/font for next block
+                richTextBoxSummary.Select(richTextBoxSummary.TextLength, 0);
+                richTextBoxSummary.SelectionFont = new Font("Consolas", 10);
+                richTextBoxSummary.SelectionColor = Color.Black;
+
                 var bySection = dayGroup.GroupBy(e => e.Section);
 
                 foreach (var sectionGrp in bySection)
                 {
-                    string secHeader =
-                        sectionGrp.Key == "Loan" ? "\nLOAN SECTION:\n" :
-                        sectionGrp.Key == "Home" ? "\nHOME SECTION:\n" : $"\n{sectionGrp.Key.ToUpper()} SECTION:\n";
+                    // Section header - only name (no code)
+                    string secHeader = $"{sectionGrp.Key.ToUpper()} SECTION:";
+                    int secHeaderStart = richTextBoxSummary.TextLength;
+                    richTextBoxSummary.AppendText(secHeader + Environment.NewLine);
 
-                    int secStart = richTextBoxSummary.TextLength;
-                    richTextBoxSummary.AppendText(secHeader);
-                    richTextBoxSummary.Select(secStart, secHeader.Length);
-                    richTextBoxSummary.SelectionFont = new Font(richTextBoxSummary.Font, FontStyle.Bold | FontStyle.Underline);
-                    richTextBoxSummary.SelectionColor = Color.MediumVioletRed;
+                    var secFont = new Font("Consolas", 14, FontStyle.Bold);
+                    richTextBoxSummary.Select(secHeaderStart, secHeader.Length);
+                    richTextBoxSummary.SelectionFont = secFont;
+                    richTextBoxSummary.SelectionColor = Color.Navy;
+
+                    // Reset for rows:
+                    richTextBoxSummary.Select(richTextBoxSummary.TextLength, 0);
+                    richTextBoxSummary.SelectionFont = new Font("Consolas", 10);
+                    richTextBoxSummary.SelectionColor = Color.Black;
+
+                    // Table header row
+                    string tableHeader =
+                        String.Format("{0,-18}{1,16}{2,14}{3,14}{4,10}   {5}",
+                            "Account", "Before", "Amount", "After", "Currency", "Action");
+
+                    int tableHeaderStartIdx = richTextBoxSummary.TextLength;
+                    // Append and format header row bold black:
+                    richTextBoxSummary.AppendText(tableHeader + Environment.NewLine);
+
+                    var tableHeadFontBold = new Font("Consolas", 10f, FontStyle.Bold);
+
+                    // Color Table Header:
+                    richTextBoxSummary.Select(tableHeaderStartIdx, tableHeader.Length);
+                    richTextBoxSummary.SelectionFont = tableHeadFontBold;
+
+                    // Append separator and make it gray:
+                    string separatorLine = new string('-', tableHeader.Length) + Environment.NewLine;
+
+                    int sepStartIdx = richTextBoxSummary.TextLength;
+                    int sepLen = separatorLine.Length;
+
+                    richTextBoxSummary.AppendText(separatorLine);
+
+                    // Color the dashes gray except the newline at end
+                    if (sepLen > 0)
+                    {
+                        try
+                        {
+                            int dashLenOnly = separatorLine.TrimEnd('\r', '\n').Length;
+                            if (dashLenOnly > 0)
+                                richTextBoxSummary.Select(sepStartIdx, dashLenOnly);
+                            if (dashLenOnly > 0)
+                                richTextBoxSummary.SelectionColor = Color.Gray;
+                        }
+                        catch { }
+                        finally
+                        {
+                            try { richTextBoxSummary.Select(richTextBoxSummary.TextLength, 0); } catch { }
+                        }
+                    }
 
                     foreach (var entry in sectionGrp)
                     {
-                        string detail =
-        $@"{entry.Account} before operation: {entry.Before:N2} {entry.Currency}
-{entry.Amount:N2} {entry.Currency} {entry.Action} {entry.Account}
-{entry.Account} after operation: {entry.After:N2} {entry.Currency}
+                        string accLowerNoSpaces = entry.Account.Replace(" ", "").ToLowerInvariant();
+                        string accLower = entry.Account.ToLowerInvariant();
+                        string actionLowerNoSpace = entry.Action.Replace(" ", "").ToLowerInvariant();
 
-";
-                        int startIdx = richTextBoxSummary.TextLength;
-                        richTextBoxSummary.AppendText(detail);
+                        Color colorDetailRow = Color.Black;
 
-                        Color color = Color.Black;
-                        if ((entry.Account.Contains("Loan") && entry.Action.Contains("payment made on")) ||
-                            (entry.Account == "Savings" && entry.Action.Contains("added to")))
-                            color = Color.Green;
-                        else if (entry.Account.Contains("Loan") && entry.Action.Contains("added to"))
-                            color = Color.Red;
-                        else if (entry.Account == "Savings" && entry.Action.Contains("subtracted from"))
-                            color = Color.DarkOrange;
+                        // Loans/Credit accounts: Home Loan / Personal Loan / Credit Card etc.
+                        if (
+                            accLower.Contains("loan")
+                            || accLower.Contains("credit")
+                            || accLower.Contains("personal loan")
+                           )
+                        {
+                            if (entry.Action.ToLowerInvariant().Contains("added to"))
+                                colorDetailRow = Color.Red;
+                            else
+                                colorDetailRow = Color.Green;
+                        }
+                        // Savings/Balances accounts: Savings / AIB Balance / Revolut Balance etc.
+                        else if (
+                            accLowerNoSpaces == "savings"
+                            || accLowerNoSpaces == "aibbalance"
+                            || accLowerNoSpaces == "revolutbalance"
+                           )
+                        {
+                            if (NormalizeWhitespace(entry.Action.ToLowerInvariant()).Contains("added to"))
+                                colorDetailRow = Color.Green;
+                            else if (NormalizeWhitespace(entry.Action.ToLowerInvariant()).Contains("payment made on"))
+                                colorDetailRow = Color.Red;
+                        }
 
-                        // Apply coloring for this detail block only
-                        richTextBoxSummary.Select(startIdx, detail.Length);
-                        richTextBoxSummary.SelectionColor = color;
-                        richTextBoxSummary.SelectionFont = new Font(richTextBoxSummary.Font, FontStyle.Regular);
+                        string line =
+                            String.Format("{0,-18}{1,16:N2}{2,14:N2}{3,14:N2}{4,10}   {5}",
+                                entry.Account,
+                                entry.Before,
+                                entry.Amount,
+                                entry.After,
+                                entry.Currency,
+                                entry.Action.Replace("\t", " ")
+                            );
 
-                        // Reset selection for next block
-                        richTextBoxSummary.Select(richTextBoxSummary.TextLength, 0);
-                        richTextBoxSummary.SelectionColor = richTextBoxSummary.ForeColor;
-                        richTextBoxSummary.SelectionFont = new Font(richTextBoxSummary.Font, FontStyle.Regular);
+                        int startIdxDetailRow = richTextBoxSummary.TextLength;
+                        int len = line.Length;
+
+                        var normalTableFont = new Font(richTextBoxSummary.Font.FontFamily, 10f);
+
+                        if (colorDetailRow == Color.Red || colorDetailRow == Color.Green)
+                            normalTableFont = new Font(richTextBoxSummary.Font.FontFamily, 10f, FontStyle.Bold);
+
+                        try
+                        {
+                            // Write the line:
+                            richTextBoxSummary.AppendText(line + Environment.NewLine);
+                            if (len > 0)
+                            {
+                                try { richTextBoxSummary.Select(startIdxDetailRow, len); } catch { }
+                                try { richTextBoxSummary.SelectionFont = normalTableFont; } catch { }
+                                try { richTextBoxSummary.SelectionColor = colorDetailRow; } catch { }
+                            }
+                        }
+                        catch { }
+                        finally
+                        {
+                            try
+                            {
+                                if (len > 0)
+                                {
+                                    int after = len + startIdxDetailRow + Environment.NewLine.Length;
+                                    if (after <= richTextBoxSummary.TextLength)
+                                    {
+                                        try { richTextBoxSummary.Select(after, 0); } catch { }
+                                    }
+                                    else
+                                    {
+                                        try { richTextBoxSummary.Select(richTextBoxSummary.TextLength, 0); } catch { }
+                                    }
+                                }
+                                else
+                                {
+                                    try { richTextBoxSummary.Select(richTextBoxSummary.TextLength, 0); } catch { }
+                                }
+                                try
+                                {
+                                    Color fallbackCol =
+                                        !richTextBoxSummary.ForeColor.IsEmpty ?
+                                        richTextBoxSummary.ForeColor : Color.Black;
+                                    /* fallback foreground */
+                                    ricHtexTboXtOSeleCtion(normalTableFont, fallbackCol);
+                                }
+                                catch { }
+                            }
+                            catch { }
+                        }
                     }
+
+                    // Show total salary balance at end of salary group:
+                    if (sectionGrp.Key == "Salary")
+                    {
+                        decimal totalAibThisDay =
+                            sectionGrp.Where(x => x.Account.Equals("AIB Balance", StringComparison.OrdinalIgnoreCase))
+                                      .LastOrDefault()?.After ?? 0m;
+                        decimal totalRevolutThisDay =
+                            sectionGrp.Where(x => x.Account.Equals("Revolut Balance", StringComparison.OrdinalIgnoreCase))
+                                      .LastOrDefault()?.After ?? 0m;
+
+                        decimal totalSalaryBalanceThisDay = totalAibThisDay + totalRevolutThisDay;
+
+                        string totalStr =
+                    $@"{"",-18}{"",-16}{"",-14}{"",-14}{"",-10}   Total Salary Balance: {totalSalaryBalanceThisDay:N2} Euro{Environment.NewLine}";
+
+                        int tStartSalBalSumSec = richTextBoxSummary.TextLength;
+
+                        var fontToUseForTotalSalaryBoldItalicBlue =
+                           new Font(richTextBoxSummary.Font.FontFamily, 11f, FontStyle.Bold | FontStyle.Italic);
+
+                        ricHtexTboXtOAppend(totalStr);
+
+                        ricHtexTboXtOSeleCt(tStartSalBalSumSec, totalStr.Length);
+
+                        ricHtexTboXtOSeleCtion(fontToUseForTotalSalaryBoldItalicBlue, Color.RoyalBlue);
+
+                        ricHtexTboXtOSeleCt(richTextBoxSummary.TextLength, 0);
+                    }
+
+
+                    ricHtexTboXtOAppend(Environment.NewLine); // blank line after each section
+
                 }
 
-                // Space between days:
-                richTextBoxSummary.AppendText(Environment.NewLine);
+                ricHtexTboXtOAppend(Environment.NewLine + Environment.NewLine); // double blank between days
+
             }
 
-            richTextBoxSummary.ScrollToCaret();
+            /*Scroll down after filling*/
+            try { ricHtexTboXtOScroll(); } catch { }
+
+
+            // ----------- Local Helper Functions -------------
+
+            // These are just wrappers for clarity. You can use your own or inline as usual.
+            void ricHtexTboXtOAppend(string s) => this.richTextBoxSummary.AppendText(s);
+            void ricHtexTboXtOSeleCt(int s, int l) => this.richTextBoxSummary.Select(s, l);
+            void ricHtexTboXtOSeleCtion(Font f, Color c) { this.richTextBoxSummary.SelectionFont = f; this.richTextBoxSummary.SelectionColor = c; }
+            void ricHtexTboXtOScroll() => this.richTextBoxSummary.ScrollToCaret();
+
+        }
+        string NormalizeWhitespace(string input)
+        {
+            return Regex.Replace(input ?? "", @"\s+", " ").Trim();
         }
         public class ComboInputDialog : Form
         {
@@ -432,7 +607,6 @@ namespace ProbationDaysApp
                 AcceptButton = okBtn; // Enter key triggers OK button.
             }
         }
-
         private string GetDayWithSuffix(int day)
         {
             if (day >= 11 && day <= 13) return day + "th";
@@ -484,42 +658,68 @@ namespace ProbationDaysApp
                     foreach (var sec in sectionsInDay)
                     {
 
-                        // Section header row ("LOAN SECTION:" or "HOME SECTION:")
-                        ws.Cell(row, 1).Value = (sec.Key == "Loan") ? "LOAN SECTION:"
-                            : (sec.Key == "Home") ? "HOME SECTION:"
-                            : $"{sec.Key.ToUpper()} SECTION:";
+                        ws.Cell(row, 1).Value =
+                            sec.Key == "Loan" ? "LOAN SECTION:" :
+                            sec.Key == "Home" ? "HOME SECTION:" :
+                            sec.Key == "" ? "SAVINGS SECTION:" :
+                            sec.Key == "Salary" ? "SALARY SECTION:" :
+                            $"{sec.Key.ToUpper()} SECTION:";
                         ws.Range(row, 1, row, 7).Merge().Style.Font.Bold = true;
-                        ws.Range(row, 1, row, 7).Style.Fill.BackgroundColor =
-                                          sec.Key == "Loan" ? XLColor.LightGray :
-                                          sec.Key == "Home" ? XLColor.LightSalmon :
-                                          XLColor.LightCyan;
+
+                        ws.Range(row, 1,
+                                 row,
+                                 7).Style.Fill.BackgroundColor =
+                                 sec.Key == "Loan" ? XLColor.LightGray :
+                                 sec.Key == "Home" ? XLColor.LightSalmon :
+                                 sec.Key == "Salary" ? XLColor.CornflowerBlue :
+                                 XLColor.LightCyan;
+
                         row++;
 
-                        // Column headers:
-                        ws.Cell(row, 1).Value = "Account";
-                        ws.Cell(row, 2).Value = "Before";
-                        ws.Cell(row, 3).Value = "Amount";
-                        ws.Cell(row, 4).Value = "After";
-                        ws.Cell(row, 5).Value = "Currency";
-                        ws.Cell(row, 6).Value = "Action";
+                        ws.Cell(row,
+                                1).Value = "Account";
+                        ws.Cell(row,
+                                2).Value = "Before";
+                        ws.Cell(row,
+                                3).Value = "Amount";
+                        ws.Cell(row,
+                                4).Value = "After";
+                        ws.Cell(row,
+                                5).Value = "Currency";
+                        ws.Cell(row,
+                               6).Value = "Action";
 
-                        ws.Range(row, 1, row, 6).Style.Font.Bold = true;
-                        row++;
+                        ws.Range(row,
+                                 1, row,
+                                    6).Style.Font.Bold = true; row++;
 
                         foreach (var entry in sec)
                         {
-                            ws.Cell(row, 1).Value = entry.Account;
-                            ws.Cell(row, 2).Value = entry.Before;
-                            ws.Cell(row, 3).Value = entry.Amount;
-                            ws.Cell(row, 4).Value = entry.After;
-                            ws.Cell(row, 5).Value = entry.Currency;
-                            ws.Cell(row, 6).Value = entry.Action;
+                            ws.Cell(
+                                row,
+                                1).Value = entry.Account;
+                            ws.Cell(
+                                row,
+                                 2).Value = entry.Before;
+                            ws.Cell(
+                                row,
+                                3).Value = entry.Amount;
+                            ws.Cell(
+                                row,
+                                4).Value = entry.After;
+                            ws.Cell(
+                                row,
+                                5).Value = entry.Currency;
+                            ws.Cell(
+                                row,
+                                6).Value = entry.Action;
 
-                            // Excel color logic
                             XLColor colorXL =
                                 ((entry.Account.Contains("Loan") && entry.Action.Contains("payment made on")) ||
                                  (entry.Account == "Savings" && entry.Action.Contains("added to"))) ?
                                 XLColor.LightGreen :
+                                ((entry.Section == "Salary")) ?
+                                XLColor.CornflowerBlue :
                                 ((entry.Account.Contains("Loan") && entry.Action.Contains("added to"))) ?
                                 XLColor.LightPink :
                                 ((entry.Account == "Savings" && entry.Action.Contains("subtracted from"))) ?
@@ -531,15 +731,36 @@ namespace ProbationDaysApp
                             row++;
                         }
 
-                        row++; // Space between sections/days
+                        // For Salary Section add the combined AIB+Revolut after all entries of that section for this day:
+                        if (sec.Key == "Salary")
+                        {
+                            decimal totalAibThisDay =
+                                 sec.Where(x => x.Account == "AIB Balance").LastOrDefault()?.After ?? 0m;
+                            decimal totalRevolutThisDay =
+                                 sec.Where(x => x.Account == "Revolut Balance").LastOrDefault()?.After ?? 0m;
+                            decimal totalSalaryBalanceThisDay =
+                                 totalAibThisDay + totalRevolutThisDay;
+
+                            // Row for TOTAL SALARY BALANCE
+                            ws.Cell(row, 1).Value = "Total Salary Balance (AIB + Revolut)";
+                            ws.Range(row, 1, row, 4).Merge().Style.Font.Bold = true;
+                            ws.Range(row, 1, row, 4).Style.Fill.BackgroundColor = XLColor.Aqua;
+
+                            ws.Cell(row, 5).Value = totalSalaryBalanceThisDay;// you may want to use .ToString(“N2”) as well.
+                            ws.Row(row).Height = 18d;
+
+                            ++row;
+                        }
+
+                        ++row;// Space between sections/days
                     }
                 }
+
 
                 for (int c = 1; c <= 6; c++)
                     ws.Column(c).AdjustToContents();
 
-                using (SaveFileDialog sfd = new SaveFileDialog()
-                { Filter = "Excel Workbook|*.xlsx", FileName = "summary.xlsx" })
+                using (SaveFileDialog sfd = new SaveFileDialog() { Filter = "Excel Workbook|*.xlsx", FileName = "summary.xlsx" })
                 {
                     if (sfd.ShowDialog() == DialogResult.OK)
                         workbook.SaveAs(sfd.FileName);
@@ -547,64 +768,46 @@ namespace ProbationDaysApp
 
                 MessageBox.Show("Exported successfully!");
             }
-
         }
-
         private void btnDetails_Click(object sender, EventArgs e)
         {
             int monthsPaid = ((DateTime.Today.Year - startDate.Year) * 12) + DateTime.Today.Month - startDate.Month;
             int monthsRemaining = totalMonths - monthsPaid;
             decimal remainingPrincipal = originalLoanAmount;
             decimal interestRateMonthly = 2.65m / 100 / 12;
-            decimal totalInterestPaid = 0;
-            decimal totalPrincipalPaid = 0;
 
-            // Loop through past months to calculate actual paid interest/principal
             for (int i = 0; i < monthsPaid; i++)
             {
                 decimal interest = remainingPrincipal * interestRateMonthly;
                 decimal principal = monthlyEmi - interest;
                 remainingPrincipal -= principal;
-                totalInterestPaid += interest;
-                totalPrincipalPaid += principal;
             }
-            decimal totalPaid = totalPrincipalPaid + totalInterestPaid;
-            decimal futureFixedTotal = monthsRemaining * monthlyEmi;
+            if (remainingPrincipal < 0m) remainingPrincipal = 0m;
 
-            StringBuilder sb = new StringBuilder();
-            sb.AppendLine($"{"Original Loan Amount",-28}       :€{originalLoanAmount:N2}");
-            sb.AppendLine($"{"Loan Amount (current)",-28}       :€{loanamount:N2}");
-            sb.AppendLine($"{"Fixed EMI",-28}                  :€{monthlyEmi:N2}");
-            sb.AppendLine($"{"Start Date",-28}                  :{startDate:dd MMM yyyy}");
-            sb.AppendLine($"{"Months Paid",-28}               :€{monthsPaid}");
-            sb.AppendLine($"{"Months Remaining",-28}         :€{monthsRemaining}");
-            sb.AppendLine($"{"Total Paid",-28}                  :€{totalPaid:N2}");
-            sb.AppendLine($"   {"└ Principal Paid",-25}             :€{totalPrincipalPaid:N2}");
-            sb.AppendLine($"   {"└ Interest Paid",-25}              :€{totalInterestPaid:N2}");
-            sb.AppendLine($"{"Remaining (2.65%)",-28}           :€{futureFixedTotal:N2}");
+            decimal totalPaid = monthsPaid * monthlyEmi;
+            decimal totalPrincipalPaid = originalLoanAmount - loanamount;
+            decimal totalInterestPaid = totalPaid - totalPrincipalPaid;
 
-            sb.AppendLine();
-            sb.AppendLine("--- Variable Rate Projections ---");
-
-            foreach (var rate in variableRates)
+            var loanDetailsModel = new LoanDetailsModel
             {
-                decimal rMonthly = rate / 100m / 12m;
-                decimal emi = remainingPrincipal * rMonthly *
-                              (decimal)Math.Pow(1 + (double)rMonthly, monthsRemaining) /
-                              ((decimal)Math.Pow(1 + (double)rMonthly, monthsRemaining) - 1);
-                decimal total = emi * monthsRemaining;
+                OriginalLoanAmount = originalLoanAmount,
+                CurrentLoanAmount = loanamount,
+                MonthlyEmi = monthlyEmi,
+                StartDate = startDate,
+                MonthsPaid = monthsPaid,
+                MonthsRemaining = monthsRemaining,
+                TotalPaid = totalPaid,
+                TotalPrincipalPaid = totalPrincipalPaid,
+                TotalInterestPaid = totalInterestPaid, 
+                FutureFixedTotal = monthsRemaining * monthlyEmi,
+                VariableRates = variableRates,
+                RemainingPrincipal = remainingPrincipal,
+                AnnualInterestRate = 2.65
+            };
 
-                // Align columns in projections as well:
-                sb.AppendLine(string.Format("Rate {0,-5}% → EMI: {1,-10} Total: {2}", rate, $"€{emi:N2}", $"€{total:N2}"));
-                // Or using interpolation:
-                // sb.AppendLine($"Rate {rate,-5}% → EMI: {"€" + emi.ToString("N2"),-10} Total: {"€" + total.ToString("N2") }");
-
-            }
-
-            LoanDetailsForm detailsForm = new LoanDetailsForm(sb.ToString());
+            var detailsForm = new LoanDetailsForm(loanDetailsModel);
             detailsForm.ShowDialog();
         }
-
 
     }
 }

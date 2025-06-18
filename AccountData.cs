@@ -12,5 +12,7 @@ namespace ProbationDaysApp
         public decimal PersonnelLoan { get; set; }
         public decimal CreditLoan { get; set; }
         public decimal Savings { get; set; }
+        public decimal AibBalance { get; set; }
+        public decimal RevolutBalamce { get; set; }
     }
 }
