@@ -22,7 +22,7 @@ namespace ProbationDaysApp
         decimal aibBalance = 300m;
         decimal revolutBalance = 100m;
         DateTime startDate = new DateTime(2023, 8, 12);
-        decimal[] variableRates = { 2.65m, 3m, 3.5m, 4m, 4.5m, 5m };
+        decimal[] variableRates = { 2.75m, 3m, 3.25m, 3.5m, 3.75m, 4m, 4.25m, 4.5m, 4.75m, 5m };
         int totalMonths = 35 * 12;
         private readonly string accountsPath = "accounts.json";
         private readonly string summaryPath = "summary.json";
@@ -774,7 +774,7 @@ namespace ProbationDaysApp
             int monthsPaid = ((DateTime.Today.Year - startDate.Year) * 12) + DateTime.Today.Month - startDate.Month;
             int monthsRemaining = totalMonths - monthsPaid;
             decimal remainingPrincipal = originalLoanAmount;
-            decimal interestRateMonthly = 2.65m / 100 / 12;
+            decimal interestRateMonthly = 2.75m / 100 / 12;
 
             for (int i = 0; i < monthsPaid; i++)
             {
@@ -802,7 +802,7 @@ namespace ProbationDaysApp
                 FutureFixedTotal = monthsRemaining * monthlyEmi,
                 VariableRates = variableRates,
                 RemainingPrincipal = remainingPrincipal,
-                AnnualInterestRate = 2.65
+                AnnualInterestRate = 2.75
             };
 
             var detailsForm = new LoanDetailsForm(loanDetailsModel);
