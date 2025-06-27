@@ -181,92 +181,98 @@ namespace ProbationDaysApp
                     string selectedOption = selectForm.SelectedItem;
 
                     string promptTitle = $"{(isAdd ? "Add" : "Subtract")} Amount";
-                    string promptMessage = $"Enter amount to {(isAdd ?
-                                           $"add to {selectedOption}" :
-                                           $"subtract from {selectedOption}")}:";
-                    decimal amt;
+                    string promptMessage = $"Enter amount(s) to {(isAdd ? "add to" : "subtract from")} {selectedOption} (separate multiple amounts with commas):";
 
                     using (var inputForm = new AmountInputDialog(promptTitle, promptMessage))
                     {
-                        if (inputForm.ShowDialog() != DialogResult.OK ||
-                            !decimal.TryParse(inputForm.AmountString, out amt) ||
-                            amt <= 0)
+                        if (inputForm.ShowDialog() != DialogResult.OK)
+                            return;
+
+                        // Parse multiple decimal values from comma-separated input
+                        var amounts = inputForm.AmountString
+                            .Split(new[] { ',', ';', ' ' }, StringSplitOptions.RemoveEmptyEntries)
+                            .Select(s => decimal.TryParse(s.Trim(), out var val) ? val : (decimal?)null)
+                            .Where(val => val.HasValue && val.Value > 0)
+                            .Select(val => val.Value)
+                            .ToList();
+
+                        if (amounts.Count == 0)
                         {
-                            MessageBox.Show("Invalid amount entered.");
+                            MessageBox.Show("Please enter one or more valid positive amounts.");
                             return;
                         }
-                    }
 
-                    bool success = false;
-                    decimal before = 0;
-                    decimal after = 0;
-                    string currency = "";
-                    string actionWord = "";
+                        foreach (var amt in amounts)
+                        {
+                            bool success = false;
+                            decimal before = 0;
+                            decimal after = 0;
+                            string currency = "";
+                            string actionWord = "";
 
-                    // Section for summary grouping
-                    string section =
-                          selectedOption == "Home Loan" ? "Home"
-                          : selectedOption == "Savings" ? "" // Or give it a section name if you want
-                          : (selectedOption == "AIB Balance" || selectedOption == "Revolut Balance") ? "Salary"
-                          : "Loan";
+                            // Section for summary grouping
+                            string section =
+                                  selectedOption == "Home Loan" ? "Home"
+                                  : selectedOption == "Savings" ? ""
+                                  : (selectedOption == "AIB Balance" || selectedOption == "Revolut Balance") ? "Salary"
+                                  : "Loan";
 
-                    if (selectedOption == "Personnel Loan")
-                    {
-                        if (!isAdd && amt > personnelLoan)
-                        {
-                            MessageBox.Show("You exceeded the available Personnel Loan amount.");
-                            return;
-                        }
-                        currency = "Euro";
-                        before = personnelLoan;
-                        personnelLoan += isAdd ? amt : -amt;
-                        after = personnelLoan;
-                        actionWord = (isAdd ? "added to" : "payment made on");
-                        success = true;
-                    }
-                    else if (selectedOption == "Credit Loan")
-                    {
-                        if (!isAdd && amt > creditLoan)
-                        {
-                            MessageBox.Show("You exceeded the available Credit	Loan amount.");
-                            return;
-                        }
-                        currency = "Euro"; before = creditLoan; creditLoan += isAdd ? amt : -amt; after = creditLoan; actionWord = (isAdd ? "added to" : "payment made on"); success = true;
-                    }
-                    else if (selectedOption == "Savings")
-                    {
-                        if (!isAdd && amt > savings)
-                        {
-                            MessageBox.Show("You exceeded the available Savings amount."); return;
-                        }
-                        currency = "Rupees"; before = savings; savings += isAdd ? amt : -amt; after = savings; actionWord = (isAdd ? "added to" : "subtracted from"); success = true;
-                    }
-                    else if (selectedOption == "Home Loan")
-                    {
-                        if (!isAdd && amt > loanamount)
-                        {
-                            MessageBox.Show("You exceeded	the available Home	Loan amount."); return;
-                        }
-                        currency = "Euro"; before = loanamount; loanamount += isAdd ? amt : -amt; after = loanamount; actionWord = (isAdd ? "added to" : "payment made on"); success = true;
-                    }
-                    else if (selectedOption == "AIB Balance")
-                    {
-                        currency = "Euro"; before = aibBalance; aibBalance += isAdd ? amt : -amt; after = aibBalance; actionWord = (isAdd ? "added to" : "payment made on"); success = true;
-                    }
-                    else if (selectedOption == "Revolut Balance")
-                    {
-                        currency = "Euro"; before = revolutBalance; revolutBalance += isAdd ? amt : -amt; after = revolutBalance; actionWord = (isAdd ? "added to" : "payment made on"); success = true;
-                    }
+                            if (selectedOption == "Personnel Loan")
+                            {
+                                if (!isAdd && amt > personnelLoan)
+                                {
+                                    MessageBox.Show("You exceeded the available Personnel Loan amount.");
+                                    return;
+                                }
+                                currency = "Euro";
+                                before = personnelLoan;
+                                personnelLoan += isAdd ? amt : -amt;
+                                after = personnelLoan;
+                                actionWord = (isAdd ? "added to" : "payment made on");
+                                success = true;
+                            }
+                            else if (selectedOption == "Credit Loan")
+                            {
+                                if (!isAdd && amt > creditLoan)
+                                {
+                                    MessageBox.Show("You exceeded the available Credit Loan amount.");
+                                    return;
+                                }
+                                currency = "Euro"; before = creditLoan; creditLoan += isAdd ? amt : -amt; after = creditLoan; actionWord = (isAdd ? "added to" : "payment made on"); success = true;
+                            }
+                            else if (selectedOption == "Savings")
+                            {
+                                if (!isAdd && amt > savings)
+                                {
+                                    MessageBox.Show("You exceeded the available Savings amount."); return;
+                                }
+                                currency = "Rupees"; before = savings; savings += isAdd ? amt : -amt; after = savings; actionWord = (isAdd ? "added to" : "subtracted from"); success = true;
+                            }
+                            else if (selectedOption == "Home Loan")
+                            {
+                                if (!isAdd && amt > loanamount)
+                                {
+                                    MessageBox.Show("You exceeded	the available Home	Loan amount."); return;
+                                }
+                                currency = "Euro"; before = loanamount; loanamount += isAdd ? amt : -amt; after = loanamount; actionWord = (isAdd ? "added to" : "payment made on"); success = true;
+                            }
+                            else if (selectedOption == "AIB Balance")
+                            { currency = "Euro"; before = aibBalance; aibBalance += isAdd ? amt : -amt; after = aibBalance; actionWord = (isAdd ? "added to" : "payment made on"); success = true; }
+                            else if (selectedOption == "Revolut Balance")
+                            { currency = "Euro"; before = revolutBalance; revolutBalance += isAdd ? amt : -amt; after = revolutBalance; actionWord = (isAdd ? "added to" : "payment made on"); success = true; }
 
-                    if (success)
-                    {
-                        AddToSummary(section, selectedOption, before, amt, after, currency, actionWord);
-                        UpdateDisplays();
-                        SaveAmounts();
+                            if (success)
+                            {
+                                AddToSummary(section, selectedOption, before, amt, after, currency, actionWord);
+                                UpdateDisplays();
+                                SaveAmounts();
+                            }
+                        }
                     }
                 }
             }
         }
+
         private void AddToSummary(string section, string account, decimal before, decimal amount, decimal after, string currency, string action)
         {
             summaryLog.Add(new SummaryEntry
