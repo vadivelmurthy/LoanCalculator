@@ -69,7 +69,7 @@ namespace ProbationDaysApp
         }
         private void UpdateDisplays()
         {
-            richTextBoxPersonnelLoan.Text = personnelLoan.ToString();
+            richTextBoxPersonnelLoan.Text = Math.Round(personnelLoan, 2).ToString();
             richTextBoxCreditLoan.Text = creditLoan.ToString();
             richTextBoxSavings.Text = savings.ToString();
             richTexthomeLoan.Text = loanamount.ToString();
@@ -122,10 +122,12 @@ namespace ProbationDaysApp
                 CreditLoan = creditLoan,
                 Savings = savings,
                 AibBalance = aibBalance,
-                RevolutBalamce = revolutBalance
+                RevolutBalance = revolutBalance,
+                PersonnelLoanInterestLastDate = DateTime.Today
             };
             File.WriteAllText(accountsPath, JsonConvert.SerializeObject(data, Formatting.Indented));
         }
+
         private void LoadAmounts()
         {
             if (File.Exists(accountsPath))
@@ -140,8 +142,24 @@ namespace ProbationDaysApp
                         personnelLoan = data.PersonnelLoan;
                         creditLoan = data.CreditLoan;
                         savings = data.Savings;
-                        aibBalance= data.AibBalance;
-                        revolutBalance = data.RevolutBalamce;
+                        aibBalance = data.AibBalance;
+                        revolutBalance = data.RevolutBalance;
+
+                        // Interest logic start:
+                        DateTime lastInterestDate = data.PersonnelLoanInterestLastDate == default ? DateTime.Today : data.PersonnelLoanInterestLastDate.Date;
+                        DateTime today = DateTime.Today;
+
+                        int daysMissed = (today - lastInterestDate).Days;
+
+                        if (daysMissed > 0)
+                        {
+                            const decimal dailyRate = 0.0001986m;
+                            for (int i = 0; i < daysMissed; i++)
+                                personnelLoan += personnelLoan * dailyRate;
+
+                            // Update the date after applying interest
+                            SavePersonnelLoanWithInterest(today);
+                        }
                     }
                 }
                 catch (Exception ex)
@@ -150,6 +168,29 @@ namespace ProbationDaysApp
                 }
             }
         }
+
+        private void SavePersonnelLoanWithInterest(DateTime lastCalcDate)
+        {
+            // Load existing or create new account object
+            AccountData acct;
+            if (File.Exists(accountsPath))
+                acct = JsonConvert.DeserializeObject<AccountData>(File.ReadAllText(accountsPath));
+            else
+                acct = new AccountData();
+
+            acct.LoanAmount = loanamount;
+            acct.PersonnelLoan = personnelLoan;
+            acct.CreditLoan = creditLoan;
+            acct.Savings = savings;
+            acct.AibBalance = aibBalance;
+            acct.RevolutBalance = revolutBalance;
+
+            acct.PersonnelLoanInterestLastDate = lastCalcDate;
+
+            File.WriteAllText(accountsPath, JsonConvert.SerializeObject(acct, Formatting.Indented));
+        }
+
+
         private void SaveSummary()
         {
             File.WriteAllText(summaryPath, JsonConvert.SerializeObject(summaryLog, Formatting.Indented));

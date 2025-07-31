@@ -196,7 +196,7 @@
             // 
             richTextBoxSummary.BackColor = SystemColors.Menu;
             richTextBoxSummary.Font = new Font("Segoe UI", 8.25F, FontStyle.Regular, GraphicsUnit.Point, 0);
-            richTextBoxSummary.Location = new Point(5, 352);
+            richTextBoxSummary.Location = new Point(6, 351);
             richTextBoxSummary.Name = "richTextBoxSummary";
             richTextBoxSummary.ReadOnly = true;
             richTextBoxSummary.Size = new Size(1086, 260);
@@ -219,7 +219,7 @@
             // 
             btn_export_to_excel.BackColor = SystemColors.Info;
             btn_export_to_excel.Font = new Font("Segoe UI", 8.25F, FontStyle.Regular, GraphicsUnit.Point, 0);
-            btn_export_to_excel.Location = new Point(1016, 362);
+            btn_export_to_excel.Location = new Point(1016, 311);
             btn_export_to_excel.Name = "btn_export_to_excel";
             btn_export_to_excel.Size = new Size(78, 26);
             btn_export_to_excel.TabIndex = 16;
